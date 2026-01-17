@@ -39,6 +39,7 @@ const GamePlay = () => {
   const [loadError, setLoadError] = useState(null);
 
   const sectorSlug = resolveSectorSlug(location.state?.sectorSlug || location.state?.sector);
+  const refreshKey = location.state?.refreshKey;
 
   useEffect(() => {
     let isMounted = true;
@@ -79,7 +80,7 @@ const GamePlay = () => {
               rewardStars: body.rewardStars || 0,
               puzzleType: body.puzzleType,
               displayOrder: body.displayOrder ?? 0,
-              cleared: Boolean(body.cleared),
+              isCleared: Boolean(body.isCleared),
             };
           })
           .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
@@ -107,7 +108,7 @@ const GamePlay = () => {
       isMounted = false;
       controller.abort();
     };
-  }, [sectorSlug]);
+  }, [sectorSlug, refreshKey]);
 
   const handleBodyClick = (body) => {
     if (!body.locked) {
@@ -175,13 +176,13 @@ const GamePlay = () => {
                     }`}
                   >
                     {/* 천체 이미지 또는 플레이스홀더 */}
-                    {body.image ? (
+                  {body.image ? (
                       <img
                         src={body.image}
                         alt={body.name}
-                        className={`w-28 h-28 mx-auto rounded-full mb-4 object-cover ${
-                          body.locked ? 'filter grayscale' : 'filter grayscale'
-                        }`}
+                      className={`w-28 h-28 mx-auto rounded-full mb-4 object-cover ${
+                        body.locked || !body.isCleared ? 'filter grayscale' : ''
+                      }`}
                         style={{
                           boxShadow: body.locked ? 'none' : '0 0 30px rgba(150, 150, 150, 0.5)',
                         }}
@@ -192,7 +193,7 @@ const GamePlay = () => {
                           body.locked ? 'bg-gray-700' : 'bg-gradient-to-br from-gray-300 to-gray-600'
                         }`}
                         style={{
-                          filter: 'grayscale(100%)',
+                        filter: body.locked || !body.isCleared ? 'grayscale(100%)' : 'none',
                           boxShadow: body.locked ? 'none' : '0 0 30px rgba(150, 150, 150, 0.5)',
                         }}
                       />
@@ -208,7 +209,7 @@ const GamePlay = () => {
                       </>
                     )}
                     
-                    {body.cleared && !body.locked && (
+                    {body.isCleared && !body.locked && (
                       <div className="absolute top-4 right-4 text-2xl">✅</div>
                     )}
                     
@@ -235,7 +236,9 @@ const GamePlay = () => {
                   <img
                     src={selectedBody.image}
                     alt={selectedBody.name}
-                    className="w-40 h-40 mx-auto rounded-full mb-4 object-cover filter grayscale"
+                    className={`w-40 h-40 mx-auto rounded-full mb-4 object-cover ${
+                      selectedBody.locked || !selectedBody.isCleared ? 'filter grayscale' : ''
+                    }`}
                     style={{
                       boxShadow: '0 0 40px rgba(150, 150, 150, 0.6)',
                     }}
@@ -244,7 +247,7 @@ const GamePlay = () => {
                   <div 
                     className="w-40 h-40 mx-auto rounded-full mb-4 bg-gradient-to-br from-gray-300 to-gray-600"
                     style={{
-                      filter: 'grayscale(100%)',
+                      filter: selectedBody.locked || !selectedBody.isCleared ? 'grayscale(100%)' : 'none',
                       boxShadow: '0 0 40px rgba(150, 150, 150, 0.6)',
                     }}
                   />

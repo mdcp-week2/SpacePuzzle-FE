@@ -45,6 +45,7 @@ const PuzzleGame = () => {
   const dragOffsetRef = useRef({ x: 0, y: 0 });
   const puzzleImageRef = useRef(null);
   const isLoadedRef = useRef(false);
+  const completeRequestRef = useRef(false);
   
   const PIECE_SIZE = 120;
   const CANVAS_WIDTH = 1200;
@@ -67,6 +68,7 @@ const PuzzleGame = () => {
     isLoadedRef.current = false;
     groupsRef.current = [];
     puzzleImageRef.current = null;
+    completeRequestRef.current = false;
     setProgress(0);
     setTime(0);
   }, [nasaIdFromState]);
@@ -83,7 +85,7 @@ const PuzzleGame = () => {
         const accessToken = session?.access_token;
         const headers = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
         const response = await fetch(
-          `https://spacepuzzle.onrender.com/celestial-objects/by-nasa/${nasaIdFromState}/puzzle`,
+          `https://spacepuzzle.onrender.com/celestial-objects/${nasaIdFromState}/puzzle`,
           { headers, signal: controller.signal }
         );
 
@@ -310,11 +312,19 @@ const PuzzleGame = () => {
     setProgress(newProgress);
 
     // 완성 체크
-    if (mergedPieces === 1) {
-      setTimeout(() => {
-        alert('🎉 퍼즐 완성! 축하합니다!');
-        navigate('/gameplay');
-      }, 500);
+    if (mergedPieces === 1 && !completeRequestRef.current) {
+      completeRequestRef.current = true;
+      completePuzzle().then(() => {
+        setTimeout(() => {
+          alert('🎉 퍼즐 완성! 축하합니다!');
+          navigate('/gameplay', {
+            state: {
+              sectorSlug: location.state?.sectorSlug,
+              refreshKey: Date.now(),
+            },
+          });
+        }, 500);
+      });
     }
   };
 
@@ -337,6 +347,34 @@ const PuzzleGame = () => {
   const handleHint = () => {
     setShowHint(true);
     setTimeout(() => setShowHint(false), 3000);
+  };
+
+  const completePuzzle = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const accessToken = session?.access_token;
+      if (!accessToken) {
+        throw new Error('인증 토큰이 없습니다.');
+      }
+
+      const response = await fetch(
+        `https://spacepuzzle.onrender.com/celestial-objects/${encodeURIComponent(nasaIdFromState)}/complete`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ playTime: time }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`퍼즐 완료 처리가 실패했습니다. (${response.status})`);
+      }
+    } catch (error) {
+      console.error('퍼즐 완료 처리 실패:', error);
+    }
   };
 
   // 마우스 이벤트 핸들러
