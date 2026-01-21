@@ -35,8 +35,44 @@ const LoginPage = () => {
       );
   
       localStorage.setItem("user", JSON.stringify(serverResp.data.user));
-      if (serverResp.data.isNewUser) navigate("/tutorial");
-      else navigate("/lobby");
+      
+      // 기본 커스터마이제이션 설정 (처음 로그인 시 또는 캐시 없을 때)
+      if (!localStorage.getItem('cachedCustomization')) {
+        const defaultCustomization = {
+          background: 'wall_gray_iron_plate',
+          cockpit: 'cockpit_wooden_basic',
+          items: [],
+        };
+        localStorage.setItem('cachedCustomization', JSON.stringify(defaultCustomization));
+        console.log('✅ 기본 커스터마이제이션 캐시 설정:', defaultCustomization);
+      }
+      
+      // 신규 유저인 경우 백엔드에 기본 아이템 구매 처리 (무료)
+      if (serverResp.data.isNewUser) {
+        try {
+          // 기본 배경 구매
+          await axios.post(
+            `${baseURL}/shop/purchase`,
+            { itemId: 'wall_gray_iron_plate' },
+            { headers: { Authorization: `Bearer ${accessToken}` } }
+          ).catch(() => console.log('기본 배경 이미 보유 중'));
+          
+          // 기본 조종석 구매
+          await axios.post(
+            `${baseURL}/shop/purchase`,
+            { itemId: 'cockpit_wooden_basic' },
+            { headers: { Authorization: `Bearer ${accessToken}` } }
+          ).catch(() => console.log('기본 조종석 이미 보유 중'));
+          
+          console.log('✅ 기본 아이템 구매 완료');
+        } catch (error) {
+          console.error('기본 아이템 구매 실패:', error);
+        }
+        
+        navigate("/tutorial");
+      } else {
+        navigate("/lobby");
+      }
     } catch (error) {
       console.error("로그인 실패", error);
       alert("로그인 실패");
@@ -44,59 +80,55 @@ const LoginPage = () => {
   };
 
   const handleGuestPlay = () => {
-    console.log('🎮 게스트 플레이 시작 - localStorage 전체 초기화');
+    console.log('🎮 게스트 플레이 시작 - 새로운 게스트 세션 생성');
     
-    // 🧹 게스트 관련 모든 localStorage 항목 삭제 (완전 초기화)
-    const keysToRemove = [
-      'guestStats',
-      'guestUnlockedSectors',
-      'guestPurchasedItems',
-      'guestCustomization',
-      'guestMilestones',
-      'guestClearedCelestials',  // 클리어한 천체 목록 삭제
-      'guestCompletions',         // 퍼즐 완료 기록 삭제
-    ];
+    // 🆔 고유한 게스트 ID 생성
+    const guestId = `guest_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    console.log('🆔 새로운 게스트 ID:', guestId);
     
-    keysToRemove.forEach(key => {
-      localStorage.removeItem(key);
-      console.log(`🗑️ 삭제: ${key}`);
-    });
-    
-    // 게스트 유저 정보 저장
+    // 게스트 유저 정보 저장 (고유 ID 포함)
     const guestUser = {
       email: 'guest@spacepuzzle.com',
       nickname: 'Guest Player',
       isGuest: true,
+      guestId: guestId, // 고유 ID 추가
     };
     localStorage.setItem('user', JSON.stringify(guestUser));
     console.log('✅ 게스트 유저 정보 저장:', guestUser);
     
-    // 게스트 초기 자원 설정 (새로운 경제 시스템)
+    // 게스트별 localStorage 키 생성
+    const statsKey = `guestStats_${guestId}`;
+    const sectorsKey = `guestUnlockedSectors_${guestId}`;
+    const purchasedKey = `guestPurchasedItems_${guestId}`;
+    const clearedKey = `guestClearedCelestials_${guestId}`;
+    const customizationKey = `guestCustomization_${guestId}`;
+    
+    // 게스트 초기 자원 설정
     const guestStats = {
-      stars: 0,          // 별: 누적 포인트 (소모 안됨)
-      credits: 20,       // 크레딧: 초기 20개
-      spaceParts: 0,     // 우주 부품: 초기 0개
+      stars: 0,
+      credits: 20,
+      spaceParts: 0,
     };
-    localStorage.setItem('guestStats', JSON.stringify(guestStats));
+    localStorage.setItem(statsKey, JSON.stringify(guestStats));
     console.log('✅ 게스트 초기 자원:', guestStats);
     
-    // 게스트 해금 섹터 초기화 (섹터 1만 해금)
-    localStorage.setItem('guestUnlockedSectors', JSON.stringify([1]));
+    // 게스트 해금 섹터 초기화
+    localStorage.setItem(sectorsKey, JSON.stringify([1]));
     
     // 게스트 구매 아이템 초기화
-    localStorage.setItem('guestPurchasedItems', JSON.stringify([]));
+    localStorage.setItem(purchasedKey, JSON.stringify([]));
     
-    // 게스트 클리어한 천체 초기화 (빈 배열)
-    localStorage.setItem('guestClearedCelestials', JSON.stringify([]));
+    // 게스트 클리어한 천체 초기화
+    localStorage.setItem(clearedKey, JSON.stringify([]));
     console.log('✅ 게스트 클리어 천체 초기화: []');
     
     // 게스트 커스터마이제이션 초기화
     const guestCustomization = {
-      background: 'default',
-      cockpit: 'default',
-      items: [], // { itemId, x, y }
+      background: 'wall_gray_iron_plate',
+      cockpit: 'cockpit_wooden_basic',
+      items: [],
     };
-    localStorage.setItem('guestCustomization', JSON.stringify(guestCustomization));
+    localStorage.setItem(customizationKey, JSON.stringify(guestCustomization));
     
     // 게스트 마일스톤 달성 초기화
     localStorage.setItem('guestMilestones', JSON.stringify([]));
@@ -148,7 +180,7 @@ const LoginPage = () => {
         >
           <div className="text-center mb-8">
             <h1 className="pixel-font text-4xl text-white mb-4">SPACE PUZZLE</h1>
-            <p className="text-gray-300 text-lg">우주 탐험을 시작하세요</p>
+            <p className="korean-font text-gray-300 text-lg">우주 탐험을 시작하세요</p>
           </div>
 
           {/* Google 로그인 버튼 */}
@@ -166,18 +198,10 @@ const LoginPage = () => {
             />
           </div>
 
-          <p className="text-gray-400 text-sm text-center mt-6">
+          <p className="korean-font text-gray-400 text-sm text-center mt-6">
             구글 계정으로 간편하게 로그인하세요
           </p>
         </div>
-
-        {/* 게스트 플레이 버튼 (오른쪽 아래) */}
-        <button
-          onClick={handleGuestPlay}
-          className="absolute bottom-8 right-8 z-30 pixel-font bg-gray-700 bg-opacity-80 hover:bg-opacity-100 text-white px-6 py-3 rounded-lg transition-all border border-gray-500 hover:border-blue-400"
-        >
-          🎮 게스트로 플레이
-        </button>
       </div>
     </GoogleOAuthProvider>
   );

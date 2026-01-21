@@ -3,6 +3,23 @@ import { useEffect, useState } from 'react';
 import spaceshipInterior from '../assets/login/spaceship-interior.jpg';
 import { supabase } from '../supabaseClient';
 import { MILESTONES, getNextMilestone, getAchievedMilestones, getStarsNeeded } from '../data/milestones';
+import { getGuestStats, getGuestCustomization, getGuestPurchasedItems, getGuestClearedCelestials, setGuestStats, setGuestCustomization } from '../utils/guestStorage';
+import AnimatedApodWindow from '../components/AnimatedApodWindow';
+import frameImage from '../assets/ui/frame.png';
+import { mapCelestialImages } from '../utils/celestialImageMapper';
+
+// 배경 이미지 import
+const BACKGROUND_IMAGES = {
+  wall_gray_iron_plate: () => import('../assets/wall/wall_gray_iron_plate.png'),
+  wall_sleepy_moon_cloud: () => import('../assets/wall/wall_sleepy_moon_cloud.png'),
+  wall_pastel_pink_cotton: () => import('../assets/wall/wall_pastel_pink_cotton.png'),
+  wall_candy_planet_system: () => import('../assets/wall/wall_candy_planet_system.png'),
+  wall_nasa_white_panel: () => import('../assets/wall/wall_nasa_white_panel.png'),
+  wall_dyson_sphere_interior: () => import('../assets/wall/wall_dyson_sphere_interior.png'),
+  wall_window_aurora_nebula: () => import('../assets/wall/wall_window_aurora_nebula.png'),
+  wall_window_blackhole_abyss: () => import('../assets/wall/wall_window_blackhole_abyss.png'),
+  wall_supernova_remnant: () => import('../assets/wall/wall_supernova_remnant.png'),
+};
 
 /**
  * 로비 페이지 (우주선 내부)
@@ -24,15 +41,35 @@ const Lobby = () => {
   const [showBackgroundModal, setShowBackgroundModal] = useState(false);
   const [showCockpitModal, setShowCockpitModal] = useState(false);
   const [showItemSidebar, setShowItemSidebar] = useState(false);
+  const [isChangingBackground, setIsChangingBackground] = useState(false);
+  const [isChangingCockpit, setIsChangingCockpit] = useState(false);
   
   // 🎁 마일스톤 모달
   const [showMilestoneModal, setShowMilestoneModal] = useState(false);
   
-  // 커스터마이제이션 데이터
-  const [customization, setCustomization] = useState({
-    background: 'bg_default',
-    cockpit: 'cockpit_default',
-    items: [], // { itemId, x, y }
+  // 커스터마이제이션 데이터 (초기값을 localStorage에서 읽기)
+  const [customization, setCustomization] = useState(() => {
+    try {
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      if (user.isGuest) {
+        // 게스트 모드: 고유 ID별 데이터 읽기
+        return getGuestCustomization();
+      } else {
+        // 로그인 모드: 캐시된 값이 있으면 사용
+        const cachedCustomization = localStorage.getItem('cachedCustomization');
+        if (cachedCustomization) {
+          return JSON.parse(cachedCustomization);
+        }
+      }
+    } catch (error) {
+      console.error('초기 customization 로드 실패:', error);
+    }
+    // 기본값
+    return {
+      background: 'wall_gray_iron_plate',
+      cockpit: 'cockpit_wooden_basic',
+      items: [],
+    };
   });
   
   // 구매한 아이템 목록
@@ -45,6 +82,12 @@ const Lobby = () => {
   // 갤러리 - 클리어한 천체 목록
   const [clearedCelestials, setClearedCelestials] = useState([]);
   const [isLoadingGallery, setIsLoadingGallery] = useState(true);
+  
+  // APOD 창문 호버 상태
+  const [isApodHovered, setIsApodHovered] = useState(false);
+  
+  // 배경 이미지 상태
+  const [backgroundImage, setBackgroundImage] = useState(spaceshipInterior);
 
   useEffect(() => {
     // localStorage에서 유저 정보 가져오기
@@ -67,6 +110,8 @@ const Lobby = () => {
     // 페이지에 포커스될 때마다 자원 새로고침
     const handleFocus = () => {
       fetchUserStats();
+      fetchCustomization(); // 커스터마이제이션도 새로고침
+      fetchPurchasedItems();
     };
     
     window.addEventListener('focus', handleFocus);
@@ -75,6 +120,35 @@ const Lobby = () => {
       window.removeEventListener('focus', handleFocus);
     };
   }, [navigate]);
+  
+  // 배경 이미지 로드
+  useEffect(() => {
+    const loadBackgroundImage = async () => {
+      // 배경이 설정되어 있으면 해당 이미지, 없으면 기본 배경 사용
+      const backgroundKey = customization.background || 'wall_gray_iron_plate';
+      console.log('🖼️ 배경 이미지 로드 시도:', backgroundKey);
+      
+      if (BACKGROUND_IMAGES[backgroundKey]) {
+        try {
+          const imageModule = await BACKGROUND_IMAGES[backgroundKey]();
+          setBackgroundImage(imageModule.default);
+          console.log('✅ 배경 이미지 로드 성공:', backgroundKey);
+        } catch (error) {
+          console.error('❌ 배경 이미지 로드 실패:', error);
+          // 실패 시 기본 배경 시도
+          try {
+            const defaultModule = await BACKGROUND_IMAGES['wall_gray_iron_plate']();
+            setBackgroundImage(defaultModule.default);
+          } catch (err) {
+            console.error('기본 배경 로드 실패:', err);
+            setBackgroundImage(spaceshipInterior);
+          }
+        }
+      }
+    };
+    
+    loadBackgroundImage();
+  }, [customization.background]);
 
   const fetchUserStats = async () => {
     setIsLoadingStats(true);
@@ -82,10 +156,7 @@ const Lobby = () => {
       // 게스트 모드 체크
       const user = JSON.parse(localStorage.getItem('user') || '{}');
       if (user.isGuest) {
-        const guestStats = JSON.parse(
-          localStorage.getItem('guestStats') || 
-          '{"stars": 0, "credits": 20, "spaceParts": 0}'
-        );
+        const guestStats = getGuestStats();
         setUserResources(guestStats);
         setIsLoadingStats(false);
         return;
@@ -130,10 +201,7 @@ const Lobby = () => {
       
       // 게스트 모드
       if (user.isGuest) {
-        const guestCustomization = JSON.parse(
-          localStorage.getItem('guestCustomization') || 
-          '{"background": "bg_default", "cockpit": "cockpit_default", "items": []}'
-        );
+        const guestCustomization = getGuestCustomization();
         console.log('📥 Lobby - customization 불러오기:', guestCustomization);
         setCustomization(guestCustomization);
         return;
@@ -156,21 +224,30 @@ const Lobby = () => {
 
       if (response.ok) {
         const data = await response.json();
-        setCustomization(data);
+        // 백엔드는 { wall, cockpit, items } 형식으로 반환 (wall === background)
+        const customizationData = {
+          background: data.wall || 'wall_gray_iron_plate',
+          cockpit: data.cockpit || 'cockpit_wooden_basic',
+          items: data.items || [],
+        };
+        setCustomization(customizationData);
+        // localStorage에 캐시 (다음 로딩 시 깜빡임 방지)
+        localStorage.setItem('cachedCustomization', JSON.stringify(customizationData));
+        console.log('📥 Lobby - customization 불러오기:', data);
       } else if (response.status === 404) {
         // 백엔드 API가 아직 없으면 기본값 사용
         console.warn('⚠️ 백엔드 API 미구현: /user/customization (기본값 사용)');
         setCustomization({
-          background: 'bg_default',
-          cockpit: 'cockpit_default',
+          background: 'wall_gray_iron_plate',
+          cockpit: 'cockpit_wooden_basic',
           items: [],
         });
       }
     } catch (error) {
       console.error('커스터마이제이션 가져오기 실패:', error);
       setCustomization({
-        background: 'bg_default',
-        cockpit: 'cockpit_default',
+        background: 'wall_gray_iron_plate',
+        cockpit: 'cockpit_wooden_basic',
         items: [],
       });
     }
@@ -182,7 +259,7 @@ const Lobby = () => {
       
       // 게스트 모드
       if (user.isGuest) {
-        const guestPurchased = JSON.parse(localStorage.getItem('guestPurchasedItems') || '[]');
+        const guestPurchased = getGuestPurchasedItems();
         // 기본 아이템 추가
         setPurchasedItems(['bg_default', 'cockpit_default', ...guestPurchased]);
         return;
@@ -205,16 +282,19 @@ const Lobby = () => {
 
       if (response.ok) {
         const data = await response.json();
-        setPurchasedItems(data.items || []);
+        // 기본 아이템 항상 포함
+        const defaultItems = ['wall_gray_iron_plate', 'cockpit_wooden_basic'];
+        const allItems = [...new Set([...defaultItems, ...(data.items || [])])];
+        setPurchasedItems(allItems);
       } else if (response.status === 404) {
         // 백엔드 API가 아직 없으면 기본값 사용
         console.warn('⚠️ 백엔드 API 미구현: /shop/purchased (기본값 사용)');
-        setPurchasedItems(['bg_default', 'cockpit_default']);
+        setPurchasedItems(['wall_gray_iron_plate', 'cockpit_wooden_basic']);
       }
     } catch (error) {
       console.error('구매 내역 가져오기 실패:', error);
       // 에러 발생 시 기본값 사용
-      setPurchasedItems(['bg_default', 'cockpit_default']);
+      setPurchasedItems(['wall_gray_iron_plate', 'cockpit_wooden_basic']);
     }
   };
 
@@ -225,8 +305,14 @@ const Lobby = () => {
       
       // 게스트 모드
       if (user.isGuest) {
-        const guestCleared = JSON.parse(localStorage.getItem('guestClearedCelestials') || '[]');
-        setClearedCelestials(guestCleared);
+        const guestCleared = getGuestClearedCelestials();
+        console.log('🖼️ 게스트 갤러리 데이터:', guestCleared);
+        
+        // 프론트엔드 assets에서 이미지 매핑
+        const celestialsWithImages = await mapCelestialImages(guestCleared);
+        console.log('✅ 게스트 이미지 매핑 완료:', celestialsWithImages);
+        
+        setClearedCelestials(celestialsWithImages);
         setIsLoadingGallery(false);
         return;
       }
@@ -251,7 +337,17 @@ const Lobby = () => {
 
       if (response.ok) {
         const data = await response.json();
-        setClearedCelestials(data.cleared || []);
+        console.log('🖼️ 백엔드 갤러리 데이터:', data.cleared);
+        
+        // imageUrl을 image 필드로 복사
+        const celestialsWithImages = (data.cleared || []).map(celestial => ({
+          ...celestial,
+          image: celestial.imageUrl || celestial.image || null,
+        }));
+        
+        console.log('✅ 이미지 URL 매핑 완료:', celestialsWithImages);
+        
+        setClearedCelestials(celestialsWithImages);
       } else if (response.status === 404) {
         // 백엔드 API가 아직 없으면 빈 배열 사용
         console.warn('⚠️ 백엔드 API 미구현: /me/cleared-celestial-objects (빈 배열 사용)');
@@ -294,20 +390,25 @@ const Lobby = () => {
 
   // 🎨 배경 변경
   const changeBackground = async (bgId) => {
+    // 이미 변경 중이거나 현재 선택된 배경이면 무시
+    if (isChangingBackground || customization.background === bgId) {
+      return;
+    }
+    
+    setIsChangingBackground(true);
+    
     try {
       const user = JSON.parse(localStorage.getItem('user') || '{}');
       
       // 게스트 모드
       if (user.isGuest) {
-        const guestCustomization = JSON.parse(
-          localStorage.getItem('guestCustomization') || 
-          '{"background": "bg_default", "cockpit": "cockpit_default", "items": []}'
-        );
+        const guestCustomization = getGuestCustomization();
         guestCustomization.background = bgId;
-        localStorage.setItem('guestCustomization', JSON.stringify(guestCustomization));
+        setGuestCustomization(guestCustomization);
         setCustomization({ ...customization, background: bgId });
         setShowBackgroundModal(false);
         alert('배경이 변경되었습니다!');
+        console.log('✅ 게스트 배경 변경:', bgId);
         return;
       }
 
@@ -329,42 +430,53 @@ const Lobby = () => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            type: 'background',
+            type: 'wall',
             itemId: bgId,
           }),
         }
       );
 
+      console.log('🎨 배경 변경 API 호출:', { type: 'wall', itemId: bgId });
+      
       if (response.ok) {
+        console.log('✅ 배경 변경 성공:', bgId);
         setCustomization({ ...customization, background: bgId });
         setShowBackgroundModal(false);
         alert('배경이 변경되었습니다!');
       } else {
-        const error = await response.json();
-        alert(`변경 실패: ${error.message || '알 수 없는 오류'}`);
+        const errorData = await response.json().catch(() => ({}));
+        console.error('❌ 배경 변경 실패:', response.status, errorData);
+        alert(`변경 실패: ${errorData.message || '알 수 없는 오류'}`);
       }
     } catch (error) {
       console.error('배경 변경 실패:', error);
       alert('배경 변경 중 오류가 발생했습니다.');
+    } finally {
+      setIsChangingBackground(false);
     }
   };
 
   // 🎮 조종석 변경
   const changeCockpit = async (cockpitId) => {
+    // 이미 변경 중이거나 현재 선택된 조종석이면 무시
+    if (isChangingCockpit || customization.cockpit === cockpitId) {
+      return;
+    }
+    
+    setIsChangingCockpit(true);
+    
     try {
       const user = JSON.parse(localStorage.getItem('user') || '{}');
       
       // 게스트 모드
       if (user.isGuest) {
-        const guestCustomization = JSON.parse(
-          localStorage.getItem('guestCustomization') || 
-          '{"background": "bg_default", "cockpit": "cockpit_default", "items": []}'
-        );
+        const guestCustomization = getGuestCustomization();
         guestCustomization.cockpit = cockpitId;
-        localStorage.setItem('guestCustomization', JSON.stringify(guestCustomization));
+        setGuestCustomization(guestCustomization);
         setCustomization({ ...customization, cockpit: cockpitId });
         setShowCockpitModal(false);
         alert('조종석이 변경되었습니다!');
+        console.log('✅ 게스트 조종석 변경:', cockpitId);
         return;
       }
 
@@ -392,17 +504,23 @@ const Lobby = () => {
         }
       );
 
+      console.log('🎮 조종석 변경 API 호출:', { type: 'cockpit', itemId: cockpitId });
+      
       if (response.ok) {
+        console.log('✅ 조종석 변경 성공:', cockpitId);
         setCustomization({ ...customization, cockpit: cockpitId });
         setShowCockpitModal(false);
         alert('조종석이 변경되었습니다!');
       } else {
-        const error = await response.json();
-        alert(`변경 실패: ${error.message || '알 수 없는 오류'}`);
+        const errorData = await response.json().catch(() => ({}));
+        console.error('❌ 조종석 변경 실패:', response.status, errorData);
+        alert(`변경 실패: ${errorData.message || '알 수 없는 오류'}`);
       }
     } catch (error) {
       console.error('조종석 변경 실패:', error);
       alert('조종석 변경 중 오류가 발생했습니다.');
+    } finally {
+      setIsChangingCockpit(false);
     }
   };
 
@@ -413,16 +531,13 @@ const Lobby = () => {
       
       // 게스트 모드
       if (user.isGuest) {
-        const guestCustomization = JSON.parse(
-          localStorage.getItem('guestCustomization') || 
-          '{"background": "bg_default", "cockpit": "cockpit_default", "items": []}'
-        );
+        const guestCustomization = getGuestCustomization();
         
         // 기존 아이템 제거 후 새 위치에 추가
         guestCustomization.items = guestCustomization.items.filter(item => item.itemId !== itemId);
         guestCustomization.items.push({ itemId, x, y });
         
-        localStorage.setItem('guestCustomization', JSON.stringify(guestCustomization));
+        setGuestCustomization(guestCustomization);
         // 🔧 전체 customization 객체를 업데이트
         setCustomization(guestCustomization);
         console.log('✅ 아이템 배치 저장:', itemId, 'at', x, y);
@@ -490,13 +605,10 @@ const Lobby = () => {
       
       // 게스트 모드
       if (user.isGuest) {
-        const guestCustomization = JSON.parse(
-          localStorage.getItem('guestCustomization') || 
-          '{"background": "bg_default", "cockpit": "cockpit_default", "items": []}'
-        );
+        const guestCustomization = getGuestCustomization();
         
         guestCustomization.items = guestCustomization.items.filter(item => item.itemId !== itemId);
-        localStorage.setItem('guestCustomization', JSON.stringify(guestCustomization));
+        setGuestCustomization(guestCustomization);
         // 🔧 전체 customization 객체를 업데이트
         setCustomization(guestCustomization);
         console.log('🗑️ 아이템 제거:', itemId);
@@ -593,13 +705,29 @@ const Lobby = () => {
 
   // 상점 아이템 마스터 데이터
   const shopItemsData = {
-    bg_default: { name: '기본 우주선', icon: '🌌', category: 'background' },
-    bg_luxury: { name: '럭셔리 우주선', icon: '✨', category: 'background' },
-    bg_military: { name: '군용 우주선', icon: '🛡️', category: 'background' },
-    bg_futuristic: { name: '미래형 우주선', icon: '🔮', category: 'background' },
-    cockpit_default: { name: '기본 조종석', icon: '🕹️', category: 'cockpit' },
-    cockpit_advanced: { name: '고급 조종석', icon: '⚡', category: 'cockpit' },
-    cockpit_retro: { name: '레트로 조종석', icon: '🎮', category: 'cockpit' },
+    // 배경
+    wall_gray_iron_plate: { name: '회색 철판 벽', icon: '🔩', category: 'background' },
+    wall_sleepy_moon_cloud: { name: '졸린 달님과 구름', icon: '🌙', category: 'background' },
+    wall_pastel_pink_cotton: { name: '파스텔 핑크 코튼', icon: '🩷', category: 'background' },
+    wall_candy_planet_system: { name: '캔디 행성계', icon: '🍬', category: 'background' },
+    wall_nasa_white_panel: { name: 'NASA 스타일 화이트 패널', icon: '🚀', category: 'background' },
+    wall_dyson_sphere_interior: { name: '다이슨 스피어 내부', icon: '⚛️', category: 'background' },
+    wall_window_aurora_nebula: { name: '오로라 성운 창문', icon: '🌌', category: 'background' },
+    wall_window_blackhole_abyss: { name: '심연의 블랙홀 관측창', icon: '🕳️', category: 'background' },
+    wall_supernova_remnant: { name: '초신성 폭발 잔해', icon: '💥', category: 'background' },
+    
+    // 조종석
+    cockpit_wooden_basic: { name: '기본 목재 조종석', icon: '🪵', category: 'cockpit' },
+    cockpit_seat_pink_jelly_cat: { name: '핑크 젤리 캣 시트', icon: '🐱', category: 'cockpit' },
+    cockpit_seat_nasa_ergonomic: { name: 'NASA 표준 인체공학석', icon: '🚀', category: 'cockpit' },
+    cockpit_dash_space_whale: { name: '우주 고래 대시보드', icon: '🐋', category: 'cockpit' },
+    cockpit_stealth_ship: { name: '스텔스 함선 콕핏', icon: '🥷', category: 'cockpit' },
+    cockpit_nest_space_bear: { name: '우주 곰돌이 둥지', icon: '🧸', category: 'cockpit' },
+    cockpit_bio_organic_alien: { name: '외계 유기체 생체석', icon: '👽', category: 'cockpit' },
+    cockpit_antigravity_command: { name: '반중력 커맨드 포드', icon: '🛸', category: 'cockpit' },
+    cockpit_item_star_wand: { name: '마법소녀 스타 완드', icon: '⭐', category: 'cockpit' },
+    
+    // 배치 아이템 (기존 유지)
     item_plant: { name: '우주 식물', icon: '🌿', category: 'item' },
     item_poster: { name: '은하 포스터', icon: '🖼️', category: 'item' },
     item_lamp: { name: '네온 램프', icon: '💡', category: 'item' },
@@ -607,28 +735,85 @@ const Lobby = () => {
     item_robot: { name: 'AI 로봇', icon: '🤖', category: 'item' },
     item_hologram: { name: '홀로그램', icon: '📺', category: 'item' },
     item_music: { name: '음악 플레이어', icon: '🎵', category: 'item' },
+    item_aquarium: { name: '우주 수족관', icon: '🐠', category: 'item' },
+    item_gravitylamp: { name: '무중력 램프', icon: '🕯️', category: 'item' },
     ai_robot_arm: { name: 'AI 로봇 팔', icon: '🦾', category: 'item' },
+    item_chair: { name: '편안한 의자', icon: '🪑', category: 'item' },
+    item_desk: { name: '작업 책상', icon: '🗄️', category: 'item' },
   };
 
   return (
     <div 
-      className="relative w-screen h-screen overflow-hidden bg-black"
+      className="relative w-screen h-screen overflow-hidden bg-black korean-font"
       onMouseMove={isEditMode ? handleDragMove : undefined}
       onMouseUp={isEditMode ? handleDragEnd : undefined}
     >
+      {/* 떠다니는 효과 CSS */}
+      <style>{`
+        @keyframes float {
+          0%, 100% {
+            transform: translateY(0px);
+          }
+          50% {
+            transform: translateY(-15px);
+          }
+        }
+        
+        @keyframes float-slow {
+          0%, 100% {
+            transform: translateY(0px);
+          }
+          50% {
+            transform: translateY(-20px);
+          }
+        }
+        
+        @keyframes float-medium {
+          0%, 100% {
+            transform: translateY(0px);
+          }
+          50% {
+            transform: translateY(-12px);
+          }
+        }
+        
+        .float-1 {
+          animation: float 3s ease-in-out infinite;
+        }
+        
+        .float-2 {
+          animation: float 3.5s ease-in-out infinite;
+          animation-delay: 0.2s;
+        }
+        
+        .float-3 {
+          animation: float-slow 4s ease-in-out infinite;
+          animation-delay: 0.4s;
+        }
+        
+        .float-4 {
+          animation: float-medium 3.2s ease-in-out infinite;
+          animation-delay: 0.6s;
+        }
+        
+        .float-5 {
+          animation: float 3.8s ease-in-out infinite;
+          animation-delay: 0.8s;
+        }
+      `}</style>
       {/* 우주선 내부 배경 */}
-      <img
-        src={spaceshipInterior}
-        alt="Spaceship Interior"
+      <div
         style={{
           position: 'absolute',
           top: 0,
           left: 0,
           width: '100%',
           height: '100%',
-          objectFit: 'cover',
-          imageRendering: 'pixelated',
           zIndex: 0,
+          backgroundImage: `url(${backgroundImage})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          imageRendering: 'pixelated',
         }}
       />
       
@@ -646,14 +831,16 @@ const Lobby = () => {
       />
 
       {/* 배치된 아이템 렌더링 (메인 방에서만) */}
-      {currentRoom === 'main' && customization.items.map((item) => {
+      {currentRoom === 'main' && customization.items.map((item, index) => {
         const itemData = shopItemsData[item.itemId];
         if (!itemData || itemData.category !== 'item') return null;
+        
+        const floatClass = `float-${(index % 5) + 1}`;
         
         return (
           <div
             key={item.itemId}
-            className={`absolute z-30 p-4 rounded-lg transition-all ${
+            className={`absolute z-30 p-4 rounded-lg transition-all ${floatClass} ${
               isEditMode
                 ? 'cursor-move bg-gray-800 bg-opacity-80 border-2 border-purple-500 hover:border-purple-300 hover:scale-110'
                 : 'cursor-default bg-transparent'
@@ -678,78 +865,67 @@ const Lobby = () => {
         );
       })}
 
-      {/* 🛠️ 편집 모드 버튼 (하단 중앙) - 최상위 z-index */}
-      {currentRoom === 'main' && (
-        <div className="fixed bottom-10 left-1/2 transform -translate-x-1/2 z-50">
-          <button
-            onClick={toggleEditMode}
-            className={`pixel-font px-8 py-4 rounded-lg transition-all text-lg font-bold shadow-2xl ${
-              isEditMode
-                ? 'bg-green-600 hover:bg-green-500 text-white border-4 border-green-400 animate-pulse'
-                : 'bg-purple-600 hover:bg-purple-500 text-white border-4 border-purple-400'
-            }`}
-          >
-            {isEditMode ? '✅ 편집 완료' : '✏️ 우주선 꾸미기'}
-          </button>
-        </div>
-      )}
 
       <div className="relative z-20 p-6">
 
-        {/* 왼쪽 상단 탭 메뉴 (메인 방에서만 표시, 편집 모드 아닐 때만) */}
-        {currentRoom === 'main' && !isEditMode && (
-          <div className="flex flex-col gap-3" style={{ width: 'fit-content' }}>
-            {/* 메뉴 */}
-            <button className="flex items-center gap-3 bg-gray-900 bg-opacity-90 hover:bg-opacity-100 text-white px-6 py-3 rounded-lg transition-all border border-gray-700 hover:border-blue-500">
-              <span className="text-2xl">☰</span>
-              <span className="pixel-font text-lg">메뉴</span>
-            </button>
-
-            {/* 마일스톤 */}
-            <button 
-              onClick={() => setShowMilestoneModal(true)}
-              className="flex items-center gap-3 bg-gray-900 bg-opacity-90 hover:bg-opacity-100 text-white px-6 py-3 rounded-lg transition-all border border-gray-700 hover:border-yellow-500"
+        {/* 왼쪽 상단: 상점 & 우주선 꾸미기 버튼 (메인 방에서만 표시) */}
+        {currentRoom === 'main' && (
+          <div className="flex flex-col gap-3 float-1" style={{ width: 'fit-content' }}>
+            {/* 상점 (편집 모드 아닐 때만) */}
+            {!isEditMode && (
+              <button 
+                onClick={() => navigate('/shop')}
+                className="flex items-center gap-3 bg-gray-900 bg-opacity-90 hover:bg-opacity-100 text-white px-6 py-3 rounded-lg transition-all border border-gray-700 hover:border-blue-500"
+              >
+                <span className="text-2xl">🛒</span>
+                <span className="korean-font text-lg">상점</span>
+              </button>
+            )}
+            
+            {/* 우주선 꾸미기 / 편집 완료 */}
+            <button
+              onClick={toggleEditMode}
+              className={`flex items-center gap-3 px-6 py-3 rounded-lg transition-all border korean-font text-lg font-bold ${
+                isEditMode
+                  ? 'bg-green-600 hover:bg-green-500 text-white border-green-400 animate-pulse'
+                  : 'bg-purple-600 hover:bg-purple-500 text-white border-purple-400'
+              }`}
             >
-              <span className="text-2xl">🎁</span>
-              <span className="pixel-font text-lg">마일스톤</span>
-            </button>
-
-            {/* 상점 */}
-            <button 
-              onClick={() => navigate('/shop')}
-              className="flex items-center gap-3 bg-gray-900 bg-opacity-90 hover:bg-opacity-100 text-white px-6 py-3 rounded-lg transition-all border border-gray-700 hover:border-blue-500"
-            >
-              <span className="text-2xl">🛒</span>
-              <span className="pixel-font text-lg">상점</span>
-            </button>
-
-            {/* 설정 */}
-            <button className="flex items-center gap-3 bg-gray-900 bg-opacity-90 hover:bg-opacity-100 text-white px-6 py-3 rounded-lg transition-all border border-gray-700 hover:border-blue-500">
-              <span className="text-2xl">⚙️</span>
-              <span className="pixel-font text-lg">설정</span>
+              <span className="text-2xl">{isEditMode ? '✅' : '✏️'}</span>
+              <span>{isEditMode ? '편집 완료' : '우주선 꾸미기'}</span>
             </button>
           </div>
         )}
 
         {/* 🛠️ 편집 모드 패널 (왼쪽) */}
         {currentRoom === 'main' && isEditMode && (
-          <div className="flex flex-col gap-3" style={{ width: 'fit-content' }}>
+          <div className="flex flex-col gap-3 float-2" style={{ width: 'fit-content' }}>
             {/* 배경 변경 */}
             <button
-              onClick={() => setShowBackgroundModal(true)}
-              className="flex items-center gap-3 bg-purple-900 bg-opacity-90 hover:bg-opacity-100 text-white px-6 py-3 rounded-lg transition-all border-2 border-purple-500 hover:border-purple-300"
+              onClick={() => !showBackgroundModal && setShowBackgroundModal(true)}
+              disabled={showBackgroundModal}
+              className={`flex items-center gap-3 bg-purple-900 bg-opacity-90 text-white px-6 py-3 rounded-lg transition-all border-2 border-purple-500 ${
+                showBackgroundModal 
+                  ? 'opacity-50 cursor-not-allowed' 
+                  : 'hover:bg-opacity-100 hover:border-purple-300'
+              }`}
             >
               <span className="text-2xl">🎨</span>
-              <span className="pixel-font text-lg">배경 변경</span>
+              <span className="korean-font text-lg">배경 변경</span>
             </button>
 
             {/* 조종석 변경 */}
             <button
-              onClick={() => setShowCockpitModal(true)}
-              className="flex items-center gap-3 bg-purple-900 bg-opacity-90 hover:bg-opacity-100 text-white px-6 py-3 rounded-lg transition-all border-2 border-purple-500 hover:border-purple-300"
+              onClick={() => !showCockpitModal && setShowCockpitModal(true)}
+              disabled={showCockpitModal}
+              className={`flex items-center gap-3 bg-purple-900 bg-opacity-90 text-white px-6 py-3 rounded-lg transition-all border-2 border-purple-500 ${
+                showCockpitModal 
+                  ? 'opacity-50 cursor-not-allowed' 
+                  : 'hover:bg-opacity-100 hover:border-purple-300'
+              }`}
             >
               <span className="text-2xl">🎮</span>
-              <span className="pixel-font text-lg">조종석 변경</span>
+              <span className="korean-font text-lg">조종석 변경</span>
             </button>
 
             {/* 아이템 목록 토글 */}
@@ -758,7 +934,7 @@ const Lobby = () => {
               className="flex items-center gap-3 bg-purple-900 bg-opacity-90 hover:bg-opacity-100 text-white px-6 py-3 rounded-lg transition-all border-2 border-purple-500 hover:border-purple-300"
             >
               <span className="text-2xl">🪑</span>
-              <span className="pixel-font text-lg">아이템 배치</span>
+              <span className="korean-font text-lg">아이템 배치</span>
             </button>
 
             {/* 상점 바로가기 */}
@@ -767,7 +943,7 @@ const Lobby = () => {
               className="flex items-center gap-3 bg-blue-900 bg-opacity-90 hover:bg-opacity-100 text-white px-6 py-3 rounded-lg transition-all border-2 border-blue-500 hover:border-blue-300"
             >
               <span className="text-2xl">🛒</span>
-              <span className="pixel-font text-lg">상점</span>
+              <span className="korean-font text-lg">상점</span>
             </button>
           </div>
         )}
@@ -808,7 +984,7 @@ const Lobby = () => {
                   <br />
                   <button
                     onClick={() => navigate('/shop')}
-                    className="text-purple-400 hover:text-purple-300 underline mt-2"
+                    className="korean-font text-purple-400 hover:text-purple-300 underline mt-2"
                   >
                     상점으로 이동
                   </button>
@@ -820,7 +996,7 @@ const Lobby = () => {
 
         {/* 유저 정보 + 통계 (오른쪽 상단) */}
         {user && (
-          <div className="absolute top-6 right-6 text-right space-y-3">
+          <div className="absolute top-6 right-6 text-right space-y-3 float-3">
             {/* 유저 이름 */}
             <p className="text-white text-lg">
               <span className="text-blue-400 font-bold">{user.nickname}</span>님
@@ -880,7 +1056,7 @@ const Lobby = () => {
 
         {/* 방 전환 화살표 (왼쪽) */}
         {currentRoom === 'main' && (
-          <div className="absolute left-0" style={{ top: '60%' }}>
+          <div className="absolute left-0" style={{ top: '400px' }}>
             <button
               onClick={goToGallery}
               className="bg-gray-900 bg-opacity-90 hover:bg-opacity-100 text-white p-4 rounded-r-lg transition-all border-r border-t border-b border-gray-700 hover:border-blue-500"
@@ -888,13 +1064,13 @@ const Lobby = () => {
             >
               <span className="text-3xl">←</span>
             </button>
-            <p className="text-white text-sm mt-2 pl-2 pixel-font">모은 액자들</p>
+            <p className="text-white text-sm mt-2 pl-2 korean-font">모은 액자들</p>
           </div>
         )}
 
         {/* 조종실로 이동 화살표 (오른쪽) */}
         {currentRoom === 'main' && (
-          <div className="absolute right-0" style={{ top: '60%' }}>
+          <div className="absolute right-0" style={{ top: '400px' }}>
             <button
               onClick={goToCockpit}
               className="bg-gray-900 bg-opacity-90 hover:bg-opacity-100 text-white p-4 rounded-l-lg transition-all border-l border-t border-b border-gray-700 hover:border-blue-500"
@@ -902,13 +1078,13 @@ const Lobby = () => {
             >
               <span className="text-3xl">→</span>
             </button>
-            <p className="text-white text-sm mt-2 pr-2 pixel-font">조종실</p>
+            <p className="text-white text-sm mt-2 pr-2 korean-font">조종실</p>
           </div>
         )}
 
         {/* 방 전환 화살표 (오른쪽) */}
         {currentRoom === 'gallery' && (
-          <div className="absolute right-0" style={{ top: '70%' }}>
+          <div className="absolute right-0" style={{ top: '400px' }}>
             <button
               onClick={goToMain}
               className="bg-gray-900 bg-opacity-90 hover:bg-opacity-100 text-white p-4 rounded-l-lg transition-all border-l border-t border-b border-gray-700 hover:border-blue-500"
@@ -924,19 +1100,17 @@ const Lobby = () => {
         <div 
           className="absolute inset-0 flex justify-center pointer-events-none" 
           style={{ 
-            alignItems: currentRoom === 'gallery' ? 'flex-start' : 'center',
-            paddingTop: currentRoom === 'gallery' ? '200px' : '0'
+            alignItems: 'flex-start',
+            paddingTop: currentRoom === 'gallery' ? '200px' : '80px'
           }}
         >
           <div className="pointer-events-auto">
             {currentRoom === 'main' ? (
-              /* 메인 방 (우주선 내부) */
-              <div className="text-center">
-                <h2 className="pixel-font text-3xl text-white mb-4">우주선 내부</h2>
-                
+              /* 메인 방 */
+              <div className="flex gap-8 items-start">
                 {/* 🎁 마일스톤 진행 상황 카드 (편집 모드가 아닐 때만) */}
                 {!isEditMode && (
-                  <div className="bg-gradient-to-r from-blue-900 to-purple-900 rounded-xl p-6 mb-6 border-2 border-yellow-500 shadow-2xl max-w-md mx-auto">
+                  <div className="bg-gradient-to-r from-blue-900 to-purple-900 rounded-xl p-6 mb-6 border-2 border-yellow-500 shadow-2xl max-w-md mx-auto float-4">
                     <div className="flex items-center justify-between mb-4">
                       <div className="text-left">
                         <p className="text-gray-300 text-sm mb-1">현재 진행</p>
@@ -1009,44 +1183,44 @@ const Lobby = () => {
                 )}
                 
                 {/* APOD 창문 버튼 */}
-                <button
-                  onClick={() => navigate('/apod-info')}
-                  className="group relative bg-gradient-to-br from-blue-900 to-purple-900 border-8 border-gray-700 rounded-3xl p-12 hover:border-blue-500 transition-all transform hover:scale-105 shadow-2xl"
-                  style={{
-                    width: '400px',
-                    height: '300px',
-                  }}
-                >
-                  {/* 창문 프레임 효과 */}
-                  <div className="absolute inset-0 bg-gradient-to-b from-transparent via-white/5 to-transparent rounded-2xl pointer-events-none"></div>
-                  
-                  {/* 중앙 십자가 (창문 구조) */}
-                  <div className="absolute left-1/2 top-0 bottom-0 w-4 bg-gray-700 transform -translate-x-1/2"></div>
-                  <div className="absolute top-1/2 left-0 right-0 h-4 bg-gray-700 transform -translate-y-1/2"></div>
-                  
-                  {/* 콘텐츠 */}
-                  <div className="relative z-10 flex flex-col items-center justify-center h-full">
-                    <span className="text-7xl mb-4 group-hover:animate-pulse">🌌</span>
-                    <p className="pixel-font text-2xl text-white mb-2">APOD Window</p>
-                    <p className="text-sm text-blue-300">Astronomy Picture of the Day</p>
-                    <p className="text-xs text-gray-400 mt-3">클릭해서 오늘의 천문 사진 보기</p>
+                {!isEditMode && (
+                <div className="flex flex-col items-center">
+                  <button
+                    onClick={() => navigate('/apod-info')}
+                    className="group relative transition-all transform hover:scale-105 cursor-pointer"
+                    style={{
+                      width: '300px',
+                      height: '225px',
+                      background: 'transparent',
+                      border: 'none',
+                      padding: 0,
+                    }}
+                    onMouseEnter={() => setIsApodHovered(true)}
+                    onMouseLeave={() => setIsApodHovered(false)}
+                  >
+                    <AnimatedApodWindow 
+                      isHovered={isApodHovered}
+                      width={300}
+                      height={225}
+                    />
+                  </button>
+                  <div className="text-center mt-3">
+                    <p className="pixel-font text-gray-300 text-xs">Astronomy Picture</p>
+                    <p className="pixel-font text-gray-300 text-xs">of the Day</p>
                   </div>
-                  
-                  {/* 반짝임 효과 */}
-                  <div className="absolute top-4 left-4 w-2 h-2 bg-white rounded-full animate-ping opacity-75"></div>
-                  <div className="absolute bottom-6 right-6 w-2 h-2 bg-blue-400 rounded-full animate-ping opacity-75" style={{ animationDelay: '0.5s' }}></div>
-                </button>
+                </div>
+                )}
               </div>
             ) : (
               /* 갤러리 방 (클리어한 천체들) */
               <div className="text-center">
-                <h2 className="pixel-font text-3xl text-white mb-6">🖼️ 갤러리</h2>
+                <h2 className="korean-font text-3xl text-white mb-6">갤러리</h2>
                 <p className="text-gray-400 text-sm mb-8">클리어한 천체들을 감상하세요</p>
                 
                 {isLoadingGallery ? (
                   <div className="text-gray-400 pixel-font">로딩 중...</div>
                 ) : clearedCelestials.length > 0 ? (
-                  /* 클리어한 천체 그리드 */
+                  /* 클리어한 천체 그리드 - 액자 형태 */
                   <div className="grid grid-cols-4 gap-6 max-h-96 overflow-y-auto">
                     {clearedCelestials.map((celestial) => (
                       <div
@@ -1063,45 +1237,60 @@ const Lobby = () => {
                           ].join('\n');
                           alert(info);
                         }}
-                        className="bg-gray-800 border-4 border-amber-700 rounded-xl p-4 cursor-pointer hover:border-amber-500 transition-all transform hover:scale-105 flex flex-col items-center"
-                        style={{
-                          boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
-                        }}
+                        className="relative cursor-pointer transition-all transform hover:scale-105 flex flex-col items-center"
                         title={`${celestial.name} - ${celestial.clearedAt ? new Date(celestial.clearedAt).toLocaleDateString() : ''}`}
                       >
-                        {/* 천체 이미지 */}
-                        {celestial.image ? (
-                          <img
-                            src={celestial.image}
-                            alt={celestial.name}
-                            className="w-20 h-20 rounded-full mb-2 object-cover"
-                            style={{
-                              boxShadow: '0 0 20px rgba(200, 200, 200, 0.5)',
-                            }}
-                          />
-                        ) : (
+                        {/* 액자 + 천체 이미지 */}
+                        <div className="relative" style={{ width: '180px', height: '180px' }}>
+                          {/* 천체 이미지 (뒤쪽 레이어) */}
                           <div 
-                            className="w-20 h-20 rounded-full mb-2 bg-gradient-to-br from-gray-300 to-gray-600"
+                            className="absolute flex items-center justify-center bg-black"
+                            style={{ 
+                              top: '38px',
+                              left: '38px',
+                              right: '38px',
+                              bottom: '38px',
+                              zIndex: 1,
+                            }}
+                          >
+                            {celestial.image ? (
+                              <img
+                                src={celestial.image}
+                                alt={celestial.name}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  console.error('❌ 천체 이미지 로드 실패:', celestial.name, celestial.image);
+                                }}
+                                onLoad={() => console.log('✅ 천체 이미지 로드 성공:', celestial.name, celestial.image)}
+                              />
+                            ) : (
+                              <div 
+                                className="w-full h-full bg-gradient-to-br from-purple-500 to-blue-500"
+                              />
+                            )}
+                          </div>
+                          
+                          {/* 액자 프레임 (앞쪽 레이어) */}
+                          <img
+                            src={frameImage}
+                            alt="frame"
+                            className="absolute inset-0 w-full h-full object-contain pointer-events-none"
                             style={{
-                              boxShadow: '0 0 20px rgba(200, 200, 200, 0.5)',
+                              imageRendering: 'pixelated',
+                              filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.8))',
+                              zIndex: 2,
                             }}
                           />
-                        )}
+                        </div>
                         
                         {/* 천체 이름 */}
-                        <p className="text-white pixel-font text-sm text-center">{celestial.name}</p>
-                        
-                        {/* 클리어 표시 */}
-                        <div className="flex items-center gap-1 mt-2">
-                          <span className="text-green-400 text-xs">✓</span>
-                          <span className="text-gray-400 text-xs">완료</span>
-                        </div>
+                        <p className="text-white korean-font text-xs text-center mt-2">{celestial.name}</p>
                         
                         {/* 별 개수 */}
                         {celestial.starsEarned > 0 && (
                           <div className="flex items-center gap-1 mt-1">
                             <span className="text-yellow-400 text-xs">⭐</span>
-                            <span className="text-yellow-400 text-xs">{celestial.starsEarned}</span>
+                            <span className="pixel-font text-yellow-400 text-xs">{celestial.starsEarned}</span>
                           </div>
                         )}
                       </div>
@@ -1111,11 +1300,11 @@ const Lobby = () => {
                   /* 빈 갤러리 */
                   <div className="text-center py-12">
                     <p className="text-4xl mb-4">📭</p>
-                    <p className="text-gray-400 pixel-font text-lg">아직 클리어한 천체가 없습니다</p>
-                    <p className="text-gray-500 text-sm mt-2">퍼즐을 완료하면 여기에 표시됩니다!</p>
+                    <p className="text-gray-400 korean-font text-lg">아직 클리어한 천체가 없습니다</p>
+                    <p className="text-gray-500 korean-font text-sm mt-2">퍼즐을 완료하면 여기에 표시됩니다!</p>
                     <button
                       onClick={goToMain}
-                      className="mt-6 bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-lg pixel-font transition-all"
+                      className="mt-6 bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-lg korean-font transition-all"
                     >
                       퍼즐 플레이하러 가기 →
                     </button>
@@ -1144,15 +1333,19 @@ const Lobby = () => {
                     <button
                       key={bgId}
                       onClick={() => changeBackground(bgId)}
+                      disabled={isChangingBackground}
                       className={`p-6 rounded-lg transition-all ${
                         isSelected
                           ? 'bg-green-800 border-2 border-green-500'
+                          : isChangingBackground
+                          ? 'bg-gray-800 border-2 border-gray-600 opacity-50 cursor-not-allowed'
                           : 'bg-gray-800 hover:bg-gray-700 border-2 border-gray-600'
                       }`}
                     >
                       <span className="text-6xl block mb-3">{bgData.icon}</span>
                       <p className="text-white font-bold">{bgData.name}</p>
                       {isSelected && <p className="text-green-300 text-sm mt-1">✓ 현재 사용 중</p>}
+                      {isChangingBackground && !isSelected && <p className="text-yellow-400 text-sm mt-1">변경 중...</p>}
                     </button>
                   );
                 })}
@@ -1185,15 +1378,19 @@ const Lobby = () => {
                     <button
                       key={cockpitId}
                       onClick={() => changeCockpit(cockpitId)}
+                      disabled={isChangingCockpit}
                       className={`p-6 rounded-lg transition-all ${
                         isSelected
                           ? 'bg-green-800 border-2 border-green-500'
+                          : isChangingCockpit
+                          ? 'bg-gray-800 border-2 border-gray-600 opacity-50 cursor-not-allowed'
                           : 'bg-gray-800 hover:bg-gray-700 border-2 border-gray-600'
                       }`}
                     >
                       <span className="text-6xl block mb-3">{cockpitData.icon}</span>
                       <p className="text-white font-bold">{cockpitData.name}</p>
                       {isSelected && <p className="text-green-300 text-sm mt-1">✓ 현재 사용 중</p>}
+                      {isChangingCockpit && !isSelected && <p className="text-yellow-400 text-sm mt-1">변경 중...</p>}
                     </button>
                   );
                 })}

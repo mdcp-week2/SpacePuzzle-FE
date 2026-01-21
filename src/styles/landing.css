@@ -1,5 +1,13 @@
 /* 랜딩 화면 전용 스타일 */
 
+/* neodgm 폰트 정의 */
+@font-face {
+  font-family: 'NeoDunggeunmo';
+  src: url('../assets/fonts/neodgm.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
 /* 픽셀 폰트 클래스 */
 .pixel-font {
   font-family: 'Press Start 2P', cursive;
@@ -7,6 +15,12 @@
   text-shadow: 
     2px 2px 0px rgba(0, 0, 0, 0.8),
     4px 4px 0px rgba(0, 0, 0, 0.4);
+}
+
+/* 한글 폰트 클래스 (neodgm) */
+.korean-font {
+  font-family: 'NeoDunggeunmo', 'Press Start 2P', cursive;
+  letter-spacing: 1px;
 }
 
 /* 픽셀 아트 이미지 렌더링 */

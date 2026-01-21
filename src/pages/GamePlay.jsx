@@ -1,6 +1,11 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
+import SolarSystemView from '../components/Space/SolarSystemView';
+import NebulaView from '../components/Space/NebulaView';
+import GalaxyView from '../components/Space/GalaxyView';
+import DeepSpaceView from '../components/Space/DeepSpaceView';
+import { getSectorColors } from '../utils/sectorColors';
 
 const SECTOR_SLUGS = {
   'solar-system': 'solar-system',
@@ -22,6 +27,19 @@ const DIFFICULTY_LABELS = {
   3: '어려움',
   4: '매우 어려움',
   5: '극한',
+};
+
+// 태양계 천체 매핑 (회전 애니메이션용)
+const SOLAR_SYSTEM_PLANETS = {
+  'sun': { name: 'Sun', nameKo: '태양', size: 150, speed: 50 },
+  'mercury': { name: 'Mercury', nameKo: '수성', size: 80, speed: 100 },
+  'venus': { name: 'Venus', nameKo: '금성', size: 100, speed: 120 },
+  'earth': { name: 'Earth', nameKo: '지구', size: 100, speed: 100 },
+  'mars': { name: 'Mars', nameKo: '화성', size: 90, speed: 110 },
+  'jupiter': { name: 'Jupiter', nameKo: '목성', size: 130, speed: 80 },
+  'saturn': { name: 'Saturn', nameKo: '토성', size: 120, speed: 90 },
+  'uranus': { name: 'Uranus', nameKo: '천왕성', size: 110, speed: 100 },
+  'neptune': { name: 'Neptune', nameKo: '해왕성', size: 110, speed: 100 },
 };
 
 // 🔧 더미 천체 데이터 (백엔드에 데이터가 없을 때 사용)
@@ -215,12 +233,15 @@ const GamePlay = () => {
   const [celestialBodies, setCelestialBodies] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
+  const [isWarping, setIsWarping] = useState(false);
+  const [continuousStars, setContinuousStars] = useState([]); // 로딩/워프 중 계속 생성되는 별들
   
   // 천체별 리더보드 상태
   const [celestialLeaderboard, setCelestialLeaderboard] = useState(null);
   const [isLoadingLeaderboard, setIsLoadingLeaderboard] = useState(false);
 
   const sectorSlug = resolveSectorSlug(location.state?.sectorSlug || location.state?.sector);
+  const sectorColors = getSectorColors(sectorSlug);
   const refreshKey = location.state?.refreshKey;
 
   useEffect(() => {
@@ -403,51 +424,191 @@ const GamePlay = () => {
   };
 
   const handleStartPuzzle = () => {
-    if (selectedBody) {
-      // 선택한 천체 데이터를 PuzzleGame으로 전달
-      navigate('/puzzle', { state: { celestialBody: selectedBody } });
+    if (selectedBody && !isWarping) {
+      // 워프 애니메이션 시작
+      setIsWarping(true);
+      
+      // 0.5초 후 페이지 이동 (워프 상태 전달)
+      setTimeout(() => {
+        navigate('/puzzle', { 
+          state: { 
+            celestialBody: selectedBody,
+            sectorSlug: sectorSlug,  // 섹터 정보 전달
+            isWarping: true  // 워프 중 상태 전달
+          } 
+        });
+      }, 500);
     }
   };
 
+  // 로딩/워프 중 별 계속 생성
+  useEffect(() => {
+    if (!isLoading && !isWarping) {
+      setContinuousStars([]);
+      return;
+    }
+
+    let starId = 0;
+    const interval = setInterval(() => {
+      // 매 50ms마다 새로운 별 30개 추가
+      const newStars = [...Array(30)].map(() => {
+        const left = Math.random() * 100;
+        const top = Math.random() * 100;
+        const size = Math.random() * 3 + 1;
+        const dx = (left - 50) * 30;
+        const dy = (top - 50) * 30;
+        
+        return {
+          id: starId++,
+          left,
+          top,
+          size,
+          dx,
+          dy,
+          opacity: Math.random() * 0.7 + 0.3,
+        };
+      });
+
+      setContinuousStars(prev => {
+        // 최대 300개까지만 유지 (성능 고려)
+        const updated = [...prev, ...newStars];
+        return updated.slice(-300);
+      });
+    }, 50);
+
+    return () => clearInterval(interval);
+  }, [isLoading, isWarping]);
+
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-gradient-to-b from-indigo-950 via-purple-950 to-black">
+    <div className={`relative w-screen h-screen overflow-hidden bg-gradient-to-b ${sectorColors.bg}`}>
+      {/* 워프 효과 + 반짝임 효과용 스타일 */}
+      <style>{`
+        @keyframes warpStar {
+          0% {
+            transform: translate(0, 0) scale(1);
+            opacity: 0.8;
+          }
+          100% {
+            transform: translate(var(--tx), var(--ty)) scale(4);
+            opacity: 0;
+          }
+        }
+        .warp-star {
+          animation: warpStar 0.6s ease-out infinite;
+        }
+        @keyframes twinkle {
+          0%, 100% { opacity: 0.3; transform: scale(1); }
+          50% { opacity: 1; transform: scale(1.2); }
+        }
+        .star-twinkle {
+          animation: twinkle 3s ease-in-out infinite;
+        }
+      `}</style>
+      
       <div className="absolute inset-0">
-        {[...Array(100)].map((_, i) => (
+        {/* 기본 별 배경 (150개) */}
+        {[...Array(150)].map((_, i) => {
+          const left = Math.random() * 100;
+          const top = Math.random() * 100;
+          const isTwinkling = Math.random() > 0.7;
+          const size = isTwinkling ? Math.random() * 3 + 2 : Math.random() * 2 + 1;
+          const animationDelay = Math.random() * 3;
+          
+          const dx = (left - 50) * 30;
+          const dy = (top - 50) * 30;
+          
+          return (
+            <div
+              key={i}
+              className={`absolute bg-white rounded-full ${isWarping || isLoading ? 'warp-star' : isTwinkling ? 'star-twinkle' : ''}`}
+              style={{
+                width: size + 'px',
+                height: size + 'px',
+                top: top + '%',
+                left: left + '%',
+                opacity: isTwinkling && !isWarping && !isLoading ? 0.3 : Math.random() * 0.5 + 0.3,
+                '--tx': `${dx}vw`,
+                '--ty': `${dy}vh`,
+                animationDelay: isTwinkling && !isWarping && !isLoading ? `${animationDelay}s` : undefined,
+              }}
+            />
+          );
+        })}
+        
+        {/* 로딩/워프 시 계속 생성되는 별들 */}
+        {continuousStars.map((star) => (
           <div
-            key={i}
-            className="absolute bg-white rounded-full"
+            key={`continuous-${star.id}`}
+            className="absolute bg-white rounded-full warp-star"
             style={{
-              width: Math.random() * 2 + 1 + 'px',
-              height: Math.random() * 2 + 1 + 'px',
-              top: Math.random() * 100 + '%',
-              left: Math.random() * 100 + '%',
-              opacity: Math.random() * 0.5 + 0.3,
+              width: star.size + 'px',
+              height: star.size + 'px',
+              top: star.top + '%',
+              left: star.left + '%',
+              opacity: star.opacity,
+              '--tx': `${star.dx}vw`,
+              '--ty': `${star.dy}vh`,
             }}
           />
         ))}
       </div>
 
       <button
-        onClick={() => navigate('/sector')}
+        onClick={() => navigate('/sector', {
+          state: {
+            sectorSlug: sectorSlug,
+          },
+        })}
         className="absolute top-6 left-6 z-20 flex items-center gap-2 bg-gray-900 bg-opacity-90 hover:bg-opacity-100 text-white px-4 py-2 rounded-lg transition-all border border-gray-700 hover:border-blue-500"
       >
         <span className="text-xl">←</span>
-        <span className="pixel-font">섹터 소개로</span>
+        <span className="korean-font">섹터 소개로</span>
       </button>
 
       <div className="relative z-10 h-full flex">
         <div className="w-2/3 p-8 flex items-center justify-center">
-          <div className="max-w-3xl w-full">
-            <h2 className="pixel-font text-4xl text-white mb-8 text-center">천체 선택</h2>
+          <div className="max-w-5xl w-full">
+            <h2 className="korean-font text-4xl text-white mb-8 text-center">천체 선택</h2>
             
             {isLoading ? (
-              <div className="text-center text-gray-400 pixel-font text-xl">로딩 중...</div>
+              <div className="text-center text-gray-400 korean-font text-xl">로딩 중...</div>
             ) : loadError ? (
               <div className="text-center text-red-400">
-                <p className="pixel-font text-xl mb-2">데이터를 불러오지 못했습니다</p>
-                <p className="text-sm text-gray-400">{loadError}</p>
+                <p className="korean-font text-xl mb-2">데이터를 불러오지 못했습니다</p>
+                <p className="korean-font text-sm text-gray-400">{loadError}</p>
               </div>
+            ) : sectorSlug === 'solar-system' || sectorSlug === 'exoplanet-systems' ? (
+              // 태양계 & 외계행성계: 중심 천체를 중심으로 공전하는 행성들
+              <SolarSystemView
+                celestialBodies={celestialBodies}
+                selectedBody={selectedBody}
+                onBodyClick={handleBodyClick}
+                folder={sectorSlug === 'solar-system' ? 'solar-system' : 'exoplanets'}
+              />
+            ) : sectorSlug === 'nebulae' ? (
+              // 성운: 무중력으로 떠다니는 대형 성운들
+              <NebulaView
+                celestialBodies={celestialBodies}
+                selectedBody={selectedBody}
+                onBodyClick={handleBodyClick}
+              />
+            ) : sectorSlug === 'galaxies' ? (
+              // 은하: 궤도 회전과 자체 회전
+              <GalaxyView
+                celestialBodies={celestialBodies}
+                selectedBody={selectedBody}
+                onBodyClick={handleBodyClick}
+              />
+            ) : sectorSlug === 'deep-space-extremes' ? (
+              // 심연: 무중력 + 화려한 시각 효과
+              <NebulaView
+                celestialBodies={celestialBodies}
+                selectedBody={selectedBody}
+                onBodyClick={handleBodyClick}
+                folder="deep-space"
+              />
             ) : (
+              // 다른 섹터는 기본 그리드 UI
               <div className="grid grid-cols-3 gap-6">
                 {celestialBodies.map((body) => (
                   <div
@@ -461,19 +622,17 @@ const GamePlay = () => {
                         : 'border-blue-500 hover:border-blue-400 cursor-pointer hover:scale-105'
                     }`}
                   >
-                    {/* 천체 이미지 또는 플레이스홀더 */}
-                  {body.image ? (
+                    {body.image ? (
                       <img
                         src={`https://spacepuzzle.onrender.com/api/proxy-image?url=${encodeURIComponent(body.image)}`}
                         alt={body.name}
-                      className={`w-28 h-28 mx-auto rounded-full mb-4 object-cover ${
-                        body.locked || !body.isCleared ? 'filter grayscale' : ''
-                      }`}
+                        className={`w-28 h-28 mx-auto rounded-full mb-4 object-cover ${
+                          body.locked || !body.isCleared ? 'filter grayscale' : ''
+                        }`}
                         style={{
                           boxShadow: body.locked ? 'none' : '0 0 30px rgba(150, 150, 150, 0.5)',
                         }}
                         onError={(e) => {
-                          // 프록시 실패 시 원본 이미지로 폴백
                           e.target.src = body.image;
                         }}
                       />
@@ -483,28 +642,28 @@ const GamePlay = () => {
                           body.locked ? 'bg-gray-700' : 'bg-gradient-to-br from-gray-300 to-gray-600'
                         }`}
                         style={{
-                        filter: body.locked || !body.isCleared ? 'grayscale(100%)' : 'none',
+                          filter: body.locked || !body.isCleared ? 'grayscale(100%)' : 'none',
                           boxShadow: body.locked ? 'none' : '0 0 30px rgba(150, 150, 150, 0.5)',
                         }}
                       />
                     )}
                     
-                    <p className="pixel-font text-center text-white text-lg mb-1">{body.name}</p>
+                    <p className="korean-font text-center text-white text-lg mb-1">{body.name}</p>
                     <p className="text-center text-gray-400 text-sm">{body.nameEn}</p>
                     
                     {body.locked && (
                       <>
                         <div className="absolute top-4 right-4 text-3xl">🔒</div>
-                        <p className="text-center text-yellow-500 text-xs mt-2">⭐ {body.requiredStars}개 필요</p>
+                        <p className="korean-font text-center text-yellow-500 text-xs mt-2">⭐ {body.requiredStars}개 필요</p>
                       </>
                     )}
                     
                     {body.isCleared && !body.locked && (
-                      <div className="absolute top-4 right-4 text-2xl">✅</div>
+                      <div className="absolute top-4 right-4 text-sm">✅</div>
                     )}
                     
                     {selectedBody?.id === body.id && (
-                      <div className="absolute -top-2 -right-2 bg-yellow-400 text-black rounded-full w-8 h-8 flex items-center justify-center text-xl">
+                      <div className="absolute -top-1 -right-1 bg-yellow-400 text-black rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
                         ✓
                       </div>
                     )}
@@ -518,7 +677,7 @@ const GamePlay = () => {
         <div className="w-1/3 bg-gray-900 bg-opacity-90 border-l-2 border-blue-500 overflow-y-auto">
           {selectedBody ? (
             <div className="w-full p-8">
-              <h3 className="pixel-font text-3xl text-white mb-6 text-center sticky top-0 bg-gray-900 bg-opacity-95 py-4 -mx-8 px-8 z-10">스테이지 정보</h3>
+              <h3 className="korean-font text-3xl text-white mb-6 text-center sticky top-0 bg-gray-900 bg-opacity-95 py-4 -mx-8 px-8 z-10">스테이지 정보</h3>
               
               <div className="bg-gray-800 rounded-lg p-6 mb-6">
                 {/* 천체 이미지 */}
@@ -547,13 +706,13 @@ const GamePlay = () => {
                   />
                 )}
                 
-                <h4 className="pixel-font text-2xl text-white text-center mb-2">{selectedBody.name}</h4>
+                <h4 className="korean-font text-2xl text-white text-center mb-2">{selectedBody.name}</h4>
                 <p className="text-blue-400 text-center mb-4">{selectedBody.nameEn}</p>
                 
                 <div className="space-y-3">
                   <div className="flex justify-between items-center bg-gray-700 rounded px-4 py-2">
-                    <span className="text-gray-300">난이도:</span>
-                    <span className={`pixel-font ${
+                    <span className="korean-font text-gray-300">난이도:</span>
+                    <span className={`korean-font ${
                       selectedBody.difficultyKo === '쉬움' ? 'text-green-400' :
                       selectedBody.difficultyKo === '보통' ? 'text-yellow-400' :
                       selectedBody.difficultyKo === '어려움' ? 'text-orange-400' :
@@ -563,28 +722,28 @@ const GamePlay = () => {
                   </div>
                   
                   <div className="flex justify-between items-center bg-gray-700 rounded px-4 py-2">
-                    <span className="text-gray-300">퍼즐 크기:</span>
+                    <span className="korean-font text-gray-300">퍼즐 크기:</span>
                     <span className="pixel-font text-blue-400">{selectedBody.gridSize}×{selectedBody.gridSize}</span>
                   </div>
 
                   <div className="flex justify-between items-center bg-gray-700 rounded px-4 py-2">
-                    <span className="text-gray-300">보상 별:</span>
-                    <span className="pixel-font text-yellow-400">⭐ {selectedBody.rewardStars}개</span>
+                    <span className="korean-font text-gray-300">보상 별:</span>
+                    <span className="korean-font text-yellow-400">⭐ {selectedBody.rewardStars}개</span>
                   </div>
                 </div>
 
                 {/* 설명 */}
-                <p className="text-gray-400 text-sm mt-4 text-center italic">
+                <p className="korean-font text-gray-400 text-sm mt-4 text-center italic">
                   {selectedBody.description}
                 </p>
               </div>
 
               {/* 천체별 리더보드 */}
               <div className="bg-gray-800 rounded-lg p-6 mb-6">
-                <h4 className="text-yellow-400 text-xl pixel-font mb-4 text-center">🏆 리더보드</h4>
+                <h4 className="text-yellow-400 text-xl korean-font mb-4 text-center">🏆 리더보드</h4>
                 
                 {isLoadingLeaderboard ? (
-                  <div className="text-center text-gray-400 pixel-font">로딩 중...</div>
+                  <div className="text-center text-gray-400 korean-font">로딩 중...</div>
                 ) : celestialLeaderboard ? (
                   <>
                     {/* TOP 5 */}

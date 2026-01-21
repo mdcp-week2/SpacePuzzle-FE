@@ -158,7 +158,7 @@ const ApodInfo = () => {
       {/* 뒤로가기 버튼 */}
       <button
         onClick={() => navigate('/lobby')}
-        className="absolute top-6 left-6 z-30 pixel-font bg-gray-800 bg-opacity-80 hover:bg-opacity-100 text-white px-6 py-3 rounded-lg transition-all border border-gray-600 hover:border-blue-400"
+        className="absolute top-6 left-6 z-30 korean-font bg-gray-800 bg-opacity-80 hover:bg-opacity-100 text-white px-6 py-3 rounded-lg transition-all border border-gray-600 hover:border-blue-400"
       >
         ← 로비로 돌아가기
       </button>
@@ -168,16 +168,16 @@ const ApodInfo = () => {
         <div className="max-w-4xl w-full bg-gray-900 bg-opacity-90 rounded-2xl p-8 shadow-2xl border-4 border-blue-500 my-8">
           {isLoading ? (
             <div className="text-center">
-              <p className="pixel-font text-2xl text-white mb-4">🌌 오늘의 천문 사진 불러오는 중...</p>
+              <p className="korean-font text-2xl text-white mb-4">🌌 오늘의 천문 사진 불러오는 중...</p>
               <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-500 mx-auto"></div>
             </div>
           ) : error ? (
             <div className="text-center">
-              <p className="pixel-font text-2xl text-red-400 mb-4">❌ 오류 발생</p>
-              <p className="text-gray-300 mb-6">{error}</p>
+              <p className="korean-font text-2xl text-red-400 mb-4">❌ 오류 발생</p>
+              <p className="korean-font text-gray-300 mb-6">{error}</p>
               <button
                 onClick={fetchApodData}
-                className="pixel-font bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-lg transition-all"
+                className="korean-font bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-lg transition-all"
               >
                 다시 시도
               </button>
@@ -188,12 +188,12 @@ const ApodInfo = () => {
               <h1 className="pixel-font text-3xl text-center text-blue-400 mb-2">
                 🌟 Astronomy Picture of the Day
               </h1>
-              <h2 className="text-2xl text-center text-white font-bold mb-4">
+              <h2 className="pixel-font text-2xl text-center text-white font-bold mb-4">
                 {apodData.title}
               </h2>
 
               {/* 날짜 */}
-              <p className="text-center text-gray-400 mb-4">
+              <p className="pixel-font text-center text-gray-400 mb-4">
                 📅 {apodData.date}
               </p>
 
@@ -211,7 +211,7 @@ const ApodInfo = () => {
                   />
                 </div>
               ) : (
-                <div className="text-center text-yellow-400 mb-6">
+                <div className="pixel-font text-center text-yellow-400 mb-6">
                   ⚠️ 오늘은 이미지가 아닌 영상입니다. 퍼즐을 만들 수 없습니다.
                 </div>
               )}
@@ -219,14 +219,14 @@ const ApodInfo = () => {
               {/* 설명 */}
               <div className="bg-gray-800 bg-opacity-80 rounded-lg p-6 mb-6">
                 <h3 className="pixel-font text-xl text-blue-400 mb-3">📝 설명</h3>
-                <p className="text-gray-300 leading-relaxed whitespace-pre-line">
+                <p className="korean-font text-gray-300 leading-relaxed whitespace-pre-line">
                   {apodData.explanation}
                 </p>
               </div>
 
               {/* 저작권 */}
               {apodData.copyright && (
-                <p className="text-center text-gray-500 text-sm">
+                <p className="pixel-font text-center text-gray-500 text-sm">
                   © {apodData.copyright}
                 </p>
               )}
@@ -234,14 +234,14 @@ const ApodInfo = () => {
               {/* 보상 정보 */}
               {apodData.media_type === 'image' && (
                 <div className="bg-purple-900 bg-opacity-50 rounded-lg p-4 mb-4 border-2 border-purple-500">
-                  <p className="text-center text-purple-300 mb-2">🎁 스페셜 보상!</p>
+                  <p className="korean-font text-center text-purple-300 mb-2">🎁 스페셜 보상!</p>
                   <div className="flex justify-center">
                     <div className="text-center">
                       <span className="text-5xl">🔧</span>
-                      <p className="text-purple-400 font-bold text-3xl mt-2">1</p>
+                      <p className="pixel-font text-purple-400 font-bold text-3xl mt-2">1</p>
                     </div>
                   </div>
-                  <p className="text-center text-gray-400 text-sm mt-2">우주 부품 1개</p>
+                  <p className="korean-font text-center text-gray-400 text-sm mt-2">우주 부품 1개</p>
                 </div>
               )}
 
@@ -251,7 +251,7 @@ const ApodInfo = () => {
                   <h3 className="text-yellow-400 text-2xl pixel-font mb-4 text-center">🏆 리더보드</h3>
                   
                   {isLoadingLeaderboard ? (
-                    <div className="text-center text-gray-400 pixel-font">로딩 중...</div>
+                    <div className="text-center text-gray-400 korean-font">로딩 중...</div>
                   ) : leaderboard ? (
                     <>
                       {/* TOP 5 */}
@@ -268,34 +268,34 @@ const ApodInfo = () => {
                               }`}
                             >
                               <div className="flex items-center gap-3">
-                                <span className="text-2xl">
+                                <span className="pixel-font text-2xl">
                                   {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}위`}
                                 </span>
-                                <span className="text-white font-bold">{player.nickname}</span>
+                                <span className="korean-font text-white font-bold">{player.nickname}</span>
                               </div>
                               <div className="text-right">
-                                <p className="text-blue-400">⏱️ {Math.floor(player.playTime / 60)}분 {player.playTime % 60}초</p>
-                                <p className="text-yellow-400 text-sm">⭐ {player.starsEarned}</p>
+                                <p className="korean-font text-blue-400">⏱️ {Math.floor(player.playTime / 60)}분 {player.playTime % 60}초</p>
+                                <p className="pixel-font text-yellow-400 text-sm">⭐ {player.starsEarned}</p>
                               </div>
                             </div>
                           ))}
                         </div>
                       ) : (
-                        <p className="text-center text-gray-400 mb-4">아직 기록이 없습니다</p>
+                        <p className="korean-font text-center text-gray-400 mb-4">아직 기록이 없습니다</p>
                       )}
 
                       {/* 내 기록 */}
                       {leaderboard.myRank ? (
                         <div className="border-t border-gray-700 pt-4">
-                          <h4 className="text-blue-400 pixel-font mb-3 text-center">📍 내 기록</h4>
+                          <h4 className="text-blue-400 korean-font mb-3 text-center">📍 내 기록</h4>
                           <div className="bg-blue-900 bg-opacity-40 rounded p-4 text-center">
-                            <p className="text-white font-bold text-lg">
+                            <p className="korean-font text-white font-bold text-lg">
                               {leaderboard.myRank.rank}위 | 
                               ⏱️ {Math.floor(leaderboard.myRank.playTime / 60)}분 {leaderboard.myRank.playTime % 60}초 | 
                               ⭐ {leaderboard.myRank.starsEarned}
                             </p>
                             {leaderboard.myRank.rank > 5 && (
-                              <p className="text-gray-400 text-sm mt-2">
+                              <p className="korean-font text-gray-400 text-sm mt-2">
                                 💡 더 빠르게 풀어서 상위권에 도전하세요!
                               </p>
                             )}
@@ -303,7 +303,7 @@ const ApodInfo = () => {
                         </div>
                       ) : (
                         <div className="border-t border-gray-700 pt-4">
-                          <p className="text-center text-gray-400">
+                          <p className="korean-font text-center text-gray-400">
                             아직 플레이 기록이 없습니다<br/>
                             첫 플레이어가 되어보세요! 🚀
                           </p>
@@ -311,7 +311,7 @@ const ApodInfo = () => {
                       )}
                     </>
                   ) : (
-                    <div className="text-center text-gray-400">
+                    <div className="korean-font text-center text-gray-400">
                       🔒 로그인하고 전 세계 유저와 경쟁하세요!
                     </div>
                   )}
@@ -322,7 +322,7 @@ const ApodInfo = () => {
               {apodData.media_type === 'image' && (
                 <button
                   onClick={handleStartPuzzle}
-                  className="w-full pixel-font text-2xl bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white px-8 py-4 rounded-lg transition-all border-4 border-blue-400 shadow-lg"
+                  className="w-full korean-font text-2xl bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white px-8 py-4 rounded-lg transition-all border-4 border-blue-400 shadow-lg"
                 >
                   🧩 이 이미지로 퍼즐 시작하기
                 </button>

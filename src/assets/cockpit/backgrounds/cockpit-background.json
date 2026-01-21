@@ -1,0 +1,107 @@
+{ "frames": {
+   "Sprite-0001 0.aseprite": {
+    "frame": { "x": 0, "y": 0, "w": 640, "h": 360 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 640, "h": 360 },
+    "sourceSize": { "w": 640, "h": 360 },
+    "duration": 100
+   },
+   "Sprite-0001 1.aseprite": {
+    "frame": { "x": 640, "y": 0, "w": 640, "h": 360 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 640, "h": 360 },
+    "sourceSize": { "w": 640, "h": 360 },
+    "duration": 100
+   },
+   "Sprite-0001 2.aseprite": {
+    "frame": { "x": 1280, "y": 0, "w": 640, "h": 360 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 640, "h": 360 },
+    "sourceSize": { "w": 640, "h": 360 },
+    "duration": 100
+   },
+   "Sprite-0001 3.aseprite": {
+    "frame": { "x": 0, "y": 360, "w": 640, "h": 360 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 640, "h": 360 },
+    "sourceSize": { "w": 640, "h": 360 },
+    "duration": 100
+   },
+   "Sprite-0001 4.aseprite": {
+    "frame": { "x": 640, "y": 360, "w": 640, "h": 360 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 640, "h": 360 },
+    "sourceSize": { "w": 640, "h": 360 },
+    "duration": 100
+   },
+   "Sprite-0001 5.aseprite": {
+    "frame": { "x": 1280, "y": 360, "w": 640, "h": 360 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 640, "h": 360 },
+    "sourceSize": { "w": 640, "h": 360 },
+    "duration": 100
+   },
+   "Sprite-0001 6.aseprite": {
+    "frame": { "x": 0, "y": 720, "w": 640, "h": 360 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 640, "h": 360 },
+    "sourceSize": { "w": 640, "h": 360 },
+    "duration": 100
+   },
+   "Sprite-0001 7.aseprite": {
+    "frame": { "x": 640, "y": 720, "w": 640, "h": 360 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 640, "h": 360 },
+    "sourceSize": { "w": 640, "h": 360 },
+    "duration": 100
+   },
+   "Sprite-0001 8.aseprite": {
+    "frame": { "x": 1280, "y": 720, "w": 640, "h": 360 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 640, "h": 360 },
+    "sourceSize": { "w": 640, "h": 360 },
+    "duration": 100
+   }
+ },
+ "meta": {
+  "app": "https://www.aseprite.org/",
+  "version": "1.3.16.1-arm64",
+  "image": "a.png",
+  "format": "RGBA8888",
+  "size": { "w": 1920, "h": 1080 },
+  "scale": "1",
+  "frameTags": [
+  ],
+  "layers": [
+   { "name": "Layer 1", "opacity": 255, "blendMode": "normal" },
+   { "name": "Layer 5", "opacity": 255, "blendMode": "normal" },
+   { "name": "Layer 6", "opacity": 255, "blendMode": "normal" },
+   { "name": "Void", "opacity": 80, "blendMode": "normal" },
+   { "name": "Void 2", "opacity": 140, "blendMode": "normal" },
+   { "name": "Cluster", "opacity": 255, "blendMode": "normal" },
+   { "name": "Background star", "opacity": 255, "blendMode": "normal" },
+   { "name": "Background star Copy", "opacity": 255, "blendMode": "normal" },
+   { "name": "Background star Copy", "opacity": 255, "blendMode": "normal" },
+   { "name": "Background star Copy Copy", "opacity": 255, "blendMode": "normal" },
+   { "name": "Stars", "opacity": 255, "blendMode": "normal" },
+   { "name": "Rotary star", "opacity": 255, "blendMode": "normal" },
+   { "name": "Layer 2", "opacity": 131, "blendMode": "normal" },
+   { "name": "Black hole", "opacity": 255, "blendMode": "normal" },
+   { "name": "Star Dust", "opacity": 104, "blendMode": "normal" },
+   { "name": "Big Star", "opacity": 255, "blendMode": "normal" },
+   { "name": "Smaller star Dust", "opacity": 146, "blendMode": "normal" },
+   { "name": "Smaller star", "opacity": 255, "blendMode": "normal" }
+  ],
+  "slices": [
+  ]
+ }
+}
