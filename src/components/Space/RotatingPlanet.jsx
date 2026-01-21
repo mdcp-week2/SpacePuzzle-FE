@@ -21,6 +21,17 @@ const PLANET_FRAMES = {
   'TRAPPIST-1e': 60,
 };
 
+const FRAME_IMAGES = {
+  ...import.meta.glob('../../assets/solar-system/**/*.png', {
+    eager: true,
+    import: 'default',
+  }),
+  ...import.meta.glob('../../assets/exoplanets/**/*.png', {
+    eager: true,
+    import: 'default',
+  }),
+};
+
 const RotatingPlanet = ({ 
   planetName, 
   size = 100, 
@@ -35,8 +46,6 @@ const RotatingPlanet = ({
   const totalFrames = frameCount || PLANET_FRAMES[planetName] || 8;
   const [currentFrame, setCurrentFrame] = useState(0);
   
-  console.log('🪐 RotatingPlanet:', { planetName, folder, totalFrames });
-
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentFrame((prev) => (prev + 1) % totalFrames);
@@ -47,16 +56,9 @@ const RotatingPlanet = ({
 
   // 동적 import를 위해 프레임 이미지 배열 생성 (섹터별 폴더 지원)
   const getFramePath = () => {
-    try {
-      // frameOffset을 더해서 실제 파일 번호 계산 (1-based index)
-      const actualFrame = frameOffset + currentFrame + 1;
-      const path = `../../assets/${folder}/${planetName}/${actualFrame}.png`;
-      console.log('🖼️ 이미지 경로:', path);
-      return new URL(path, import.meta.url).href;
-    } catch (error) {
-      console.error('❌ 이미지 경로 생성 실패:', error);
-      return '';
-    }
+    const actualFrame = frameOffset + currentFrame + 1;
+    const path = `../../assets/${folder}/${planetName}/${actualFrame}.png`;
+    return FRAME_IMAGES[path] || '';
   };
 
   return (

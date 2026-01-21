@@ -226,6 +226,13 @@ const resolveSectorSlug = (value) => {
   return SECTOR_SLUGS[value] || 'solar-system';
 };
 
+const normalizeClearedFlag = (value) => {
+  if (value === true || value === 'true' || value === 1 || value === '1') {
+    return true;
+  }
+  return false;
+};
+
 const GamePlay = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -283,9 +290,9 @@ const GamePlay = () => {
                 const difficultyValue = Number(body.difficulty);
                 
                 // 🔧 게스트 모드일 때는 localStorage 기록 확인
-                const isCleared = isGuest 
+                const isCleared = isGuest
                   ? guestClearedIds.includes(body.id)
-                  : Boolean(body.isCleared);
+                  : normalizeClearedFlag(body.isCleared);
                 
                 return {
                   id: body.id,
@@ -318,9 +325,9 @@ const GamePlay = () => {
             const difficultyValue = Number(body.difficulty);
             
             // 🔧 게스트 모드일 때는 localStorage 기록 확인
-            const isCleared = isGuest 
+            const isCleared = isGuest
               ? guestClearedIds.includes(body.id)
-              : Boolean(body.isCleared);
+              : normalizeClearedFlag(body.isCleared);
             
             return {
               ...body,

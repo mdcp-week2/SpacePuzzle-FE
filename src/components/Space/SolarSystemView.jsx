@@ -21,6 +21,30 @@ const PLANET_ORBITS = {
   'trappist-1e': { radius: 350, speed: 0.3, size: 58, frameSpeed: 310 },
 };
 
+const PLANET_FOLDER_NAMES = {
+  sun: 'Sun',
+  mercury: 'Mercury',
+  venus: 'Venus',
+  earth: 'Earth',
+  mars: 'Mars',
+  jupiter: 'Jupiter',
+  saturn: 'Saturn',
+  uranus: 'Uranus',
+  neptune: 'Neptune',
+  'proxima centauri': 'Proxima Centauri',
+  'proxima b': 'Proxima b',
+  "barnard's star b": "Barnard's Star b",
+  'kepler-186f': 'Kepler-186f',
+  'ross 128b': 'Ross 128b',
+  'trappist-1e': 'TRAPPIST-1e',
+};
+
+const getPlanetFolderName = (nasaId) => {
+  const key = nasaId?.toLowerCase();
+  if (!key) return '';
+  return PLANET_FOLDER_NAMES[key] || `${key.charAt(0).toUpperCase()}${key.slice(1)}`;
+};
+
 const SolarSystemView = ({ celestialBodies, selectedBody, onBodyClick, folder = 'solar-system' }) => {
   const [angles, setAngles] = useState({});
   const [draggedPlanet, setDraggedPlanet] = useState(null);
@@ -285,7 +309,7 @@ const SolarSystemView = ({ celestialBodies, selectedBody, onBodyClick, folder = 
               </div>
             ) : (
               <RotatingPlanet
-                planetName={centralStar.nasaId?.charAt(0).toUpperCase() + centralStar.nasaId?.slice(1) || 'Sun'}
+                planetName={getPlanetFolderName(centralStar.nasaId) || 'Sun'}
                 size={120}
                 speed={200}
                 isSelected={selectedBody?.id === centralStar.id}
@@ -311,6 +335,7 @@ const SolarSystemView = ({ celestialBodies, selectedBody, onBodyClick, folder = 
         const planetKey = body.nasaId?.toLowerCase();
         const orbit = PLANET_ORBITS[planetKey];
         if (!orbit || angles[body.id] === undefined) return null;
+        const planetFolderName = getPlanetFolderName(body.nasaId);
 
         const angle = angles[body.id];
         const radian = (angle * Math.PI) / 180;
@@ -354,7 +379,7 @@ const SolarSystemView = ({ celestialBodies, selectedBody, onBodyClick, folder = 
                 </div>
               )}
               <RotatingPlanet
-                planetName={planetKey.charAt(0).toUpperCase() + planetKey.slice(1)}
+                planetName={planetFolderName}
                 size={orbit.size}
                 speed={orbit.frameSpeed}
                 isSelected={selectedBody?.id === body.id}
